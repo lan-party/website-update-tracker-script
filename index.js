@@ -2,7 +2,7 @@ import {createClient} from '@supabase/supabase-js';
 import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import nodemailer from 'node:nodemailer';
 
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -99,10 +99,10 @@ async function sendNotification(webpagePrevious, webpageCurrent) {
         from: process.env.EMAIL_USERNAME,
         to: webpagePrevious.notification_email,
         subject: 'Website Update Alert | ' + (webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0]),
-        html: `A change has been detected on <i>"${webpagePrevious.url}"</i> since it was last checked on ${webpagePrevious.checked_at}.
-        </br><img src="${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}" width="300px" />
-        </br>Create a new webpage alert
-        </br>or <a href="https://website-tracker.com/unsubscribe/${webpagePrevious.id}">unsubscribe</a>`
+        html: `<html><body><p>A change has been detected on <i>"${webpagePrevious.url}"</i> since it was last checked on ${webpagePrevious.checked_at}.</p>
+        <br><p><img src="${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}" width="300px" /></p>
+        <br><p>Create a new webpage alert</p>
+        <br><p>or <a href="https://website-tracker.com/unsubscribe/${webpagePrevious.id}">unsubscribe</a></p></body></html>`
       };
       
       transporter.sendMail(mailOptions, function(error, info){
@@ -123,7 +123,7 @@ async function removeOldScreenshots(webpageId) {
 
     // // Remove the 3rd oldest file from storage
     if(!error && data.length >= 3){
-        await supabase.from('screenshots').remove([data[2].url]);
+        await supabase.storage.from('screenshots').remove([data[2].url]);
     }
 }
 

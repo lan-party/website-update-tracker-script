@@ -42,13 +42,13 @@ WHERE
     (
       log.checked_at > NOW() - INTERVAL '24 hours'
       AND
-      webpages.stripe_customer_id IS NULL
+      webpages.stripe_subscription_id IS NULL
     )
     OR
     (
       log.checked_at > NOW() - INTERVAL '5 minutes'
       AND
-      webpages.stripe_customer_id IS NOT NULL
+      webpages.stripe_subscription_id IS NOT NULL
     )
   )
 )
