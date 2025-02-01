@@ -100,7 +100,9 @@ async function sendNotification(webpagePrevious, webpageCurrent) {
         to: webpagePrevious.notification_email,
         subject: 'Website Update Alert | ' + (webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0]),
         html: `A change has been detected on <i>"${webpagePrevious.url}"</i> since it was last checked on ${webpagePrevious.checked_at}.
-        </br><img src="${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}" />`
+        </br><img src="${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}" width="300px" />
+        </br>Create a new webpage alert
+        </br>or <a href="https://website-tracker.com/unsubscribe/${webpagePrevious.id}">unsubscribe</a>`
       };
       
       transporter.sendMail(mailOptions, function(error, info){
@@ -125,61 +127,64 @@ async function removeOldScreenshots(webpageId) {
     }
 }
 
+async function main() {
+    setTimeout(async () => {
 
-setTimeout(async () => {
+        // Select all webpages with no log entries
+        var { data, error } = await supabase.rpc('get_unchecked_webpages');
+        if(!error){
 
-    // Select all webpages with no log entries
-    var { data, error } = await supabase.rpc('get_unchecked_webpages');
-    if(!error){
+            const uncheckedWebpages = data;
 
-        const uncheckedWebpages = data;
-
-        // Loop through each webpage
-        uncheckedWebpages.forEach(webpage => {
-        
-            // Upload a new screenshot to storage
-            takeScreenshot(webpage.url).then((data) => {
-                
-                // Save status code, checksum, and screenshot filename in log entry
-                saveLogEntry(data, webpage.id);
-            })
-        });
-    }else{
-        console.log(error);
-    }
-
-    // Select all outdated webpages
-    var { data, error } = await supabase.rpc('get_outdated_webpages');
-    if(!error){
-
-        const outdatedWebpages = data;
-
-        // Loop through each webpage
-        outdatedWebpages.forEach(webpage => {
+            // Loop through each webpage
+            uncheckedWebpages.forEach(webpage => {
             
-            takeScreenshot(webpage.url).then((data) => {
-        
-                // If there's a difference in the checksum compared to the previous entry then
-                if(webpage.page_checksum != data.pageHash){
+                // Upload a new screenshot to storage
+                takeScreenshot(webpage.url).then((data) => {
                     
                     // Save status code, checksum, and screenshot filename in log entry
                     saveLogEntry(data, webpage.id);
-                
-                    // Send a notification
-                    sendNotification(webpage, data);
-                    
-                    // Remove the screenshot before the previous entry if there is one
-                    removeOldScreenshots(webpage.id);
-
-                }else{
-
-                    // Remove screenshot from storage
-                    removeScreenshot(data.filename);
-                }
+                })
             });
-        });
-    }else{
-        console.log(error);
-    }
+        }else{
+            console.log(error);
+        }
 
-}, 600000);
+        // Select all outdated webpages
+        var { data, error } = await supabase.rpc('get_outdated_webpages');
+        if(!error){
+
+            const outdatedWebpages = data;
+
+            // Loop through each webpage
+            outdatedWebpages.forEach(webpage => {
+                
+                takeScreenshot(webpage.url).then((data) => {
+            
+                    // If there's a difference in the checksum compared to the previous entry then
+                    if(webpage.page_checksum != data.pageHash){
+                        
+                        // Save status code, checksum, and screenshot filename in log entry
+                        saveLogEntry(data, webpage.id);
+                    
+                        // Send a notification
+                        sendNotification(webpage, data);
+                        
+                        // Remove the screenshot before the previous entry if there is one
+                        removeOldScreenshots(webpage.id);
+
+                    }else{
+
+                        // Remove screenshot from storage
+                        removeScreenshot(data.filename);
+                    }
+                });
+            });
+        }else{
+            console.log(error);
+        }
+
+        main();
+    }, 600000);
+}
+main();
