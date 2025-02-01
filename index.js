@@ -2,7 +2,7 @@ import {createClient} from '@supabase/supabase-js';
 import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import crypto from 'crypto';
-import nodemailer from 'node:nodemailer';
+import nodemailer from 'nodemailer';
 
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
