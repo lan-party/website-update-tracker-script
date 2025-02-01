@@ -1,8 +1,8 @@
-import {createClient} from './$node_modules/@supabase/supabase-js/dist/module/index.js';
-import puppeteer from './$node_modules/puppeteer/lib/types.js';
+import {createClient} from '@supabase/supabase-js';
+import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import crypto from 'crypto';
-import nodemailer from './$node_modules/nodemailer/lib/nodemailer.js';
+import nodemailer from 'nodemailer';
 
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
