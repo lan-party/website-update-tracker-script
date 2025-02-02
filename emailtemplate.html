@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Website-Tracker.com</title>
+        <!--[if mso]><style type="text/css">body, table, td, a { font-family: Arial, Helvetica, sans-serif !important; }</style><![endif]-->
+        
+    </head>
+
+    <body style="font-family: Helvetica, Arial, sans-serif; margin: 0px; padding: 0px; background-color: #202020; color: white;">
+        <table role="presentation"
+            style="width: 100%; border-collapse: collapse; border: 0px; border-spacing: 0px; font-family: Arial, Helvetica, sans-serif; background-color: #202020;">
+            <tbody>
+            <tr>
+                <td align="center" style="padding: 1rem 2rem; vertical-align: top; width: 100%;">
+                <table role="presentation" style="max-width: 600px; border-collapse: collapse; border: 0px; border-spacing: 0px; text-align: left;">
+                    <tbody>
+                    <tr>
+                        <td style="padding: 40px 0px 0px;">
+                        <div style="text-align: right; margin-right: 20px;">
+                            <a href="https://website-tracker.com" style="text-decoration: none; color: white;">
+                                <div style="padding-bottom: 20px;">
+                                    <p style="margin-bottom: 0px"><img src="https://website-tracker.com/logo.png" style="width: 56px;"></p>
+                                    <p style="margin-top: 0px"><i>Website-Tracker.com</i></p>
+                                </div>
+                            </a>
+                        </div>
+                        <div style="padding: 20px; border-style: solid; border-width: 1px; border-color: oklch(84.8707% 0 0/.2); border-radius: .125rem;">
+                            <div style="text-align: left;">
+                            <h1 style="margin: 1rem 0">Webpage Update Alert</h1>
+                            <p style="padding-bottom: 16px">A recent change has been detected on a website we're tracking for you.</p>
+                            <p style="padding-bottom: 16px"><strong style="font-size: 130%">{{url}}</strong></p>
+                            
+                            <h3>Latest Snapshot</h3>
+                            <ul>
+                                <li><b>Check Timestamp:</b> {{latest_check_timestamp}}</li>
+                                <li><b>Status Code:</b> {{latest_status_code}}</li>
+                                <li><b>Page Checksum:</b> {{latest_checksum}}</li>
+                            </ul>
+                            <div style="text-align: center;">
+                                <img src="{{latest_screenshot}}" style="width: 90%" />
+                            </div>
+
+                            <h3 style="margin-top: 35px;">Previous Snapshot</h3>
+                            <ul>
+                                <li><b>Check Timestamp:</b> {{previous_check_timestamp}}</li>
+                                <li><b>Status Code:</b> {{previous_status_code}}</li>
+                                <li><b>Page Checksum:</b> {{previous_checksum}}</li>
+                            </ul>
+                            <div style="text-align: center;">
+                                <img src="{{previous_screenshot}}" style="width: 90%" />
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="https://website-tracker.com">
+                                    <div style="cursor: pointer; margin-top: 25px; min-width: 13rem; display: inline-block;	background-color: #1c4e80;	border-width: 10px 20px;	border-style: solid;	border-radius: 2px;	border-color: #1c4e80;	font-family: Arial,Helvetica,sans-serif;	font-size: .875rem;	font-weight: bold;	color: #ffffff; text-decoration: none;	line-height: 30px;	text-align: center;	transition: all 0.2s ease-in;">
+                                        Create New Alert
+                                    </div>
+                                </a>
+                            </div>
+
+                            <p style="padding-bottom: 16px; font-size: 12px;"><a href="https://website-tracker.com/unsubscribe/{{webpage_id}}">Click here to unsubscribe</a></p>
+                            
+                            </div>
+                        </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </body>
+</html>

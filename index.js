@@ -86,30 +86,47 @@ async function removeScreenshot(filename){
 async function sendNotification(webpagePrevious, webpageCurrent) {
     console.log("Sending notification...");
     console.log({webpagePrevious, webpageCurrent});
-    var transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_POST,
-        auth: {
-          user: process.env.EMAIL_USERNAME,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
-      
-      var mailOptions = {
-        from: process.env.EMAIL_USERNAME,
-        to: webpagePrevious.notification_email,
-        subject: 'Website Update Alert | ' + (webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0]),
-        html: `<html><body><p>A change has been detected on <i>"${webpagePrevious.url}"</i> since it was last checked on ${webpagePrevious.checked_at}.</p>
-        <br><p><img src="${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}" width="300px" /></p>
-        <br><p>Create a new webpage alert</p>
-        <br><p>or <a href="https://website-tracker.com/unsubscribe/${webpagePrevious.id}">unsubscribe</a></p></body></html>`
-      };
-      
-      transporter.sendMail(mailOptions, function(error, info){
+
+    fs.readFile("emailtemplate.html", 'utf8', async (error, fileBuffer) => {
         if (error) {
-          console.log(error);
+            console.error("File read error:", error);
+        } else {
+            
+            var transporter = nodemailer.createTransport({
+                host: process.env.EMAIL_HOST,
+                port: process.env.EMAIL_POST,
+                auth: {
+                  user: process.env.EMAIL_USERNAME,
+                  pass: process.env.EMAIL_PASSWORD
+                }
+              });
+
+              let bodyContent = fileBuffer;
+              bodyContent = bodyContent.replaceAll("{{url}}", webpagePrevious.url);
+              bodyContent = bodyContent.replaceAll("{{latest_check_timestamp}}", new Date().toISOString());
+              bodyContent = bodyContent.replaceAll("{{latest_status_code}}", webpageCurrent.statusCode);
+              bodyContent = bodyContent.replaceAll("{{latest_checksum}}", webpageCurrent.pageHash);
+              bodyContent = bodyContent.replaceAll("{{latest_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}`);
+              bodyContent = bodyContent.replaceAll("{{previous_check_timestamp}}", webpagePrevious.checked_at);
+              bodyContent = bodyContent.replaceAll("{{previous_status_code}}", webpagePrevious.status_code);
+              bodyContent = bodyContent.replaceAll("{{previous_checksum}}", webpagePrevious.page_checksum);
+              bodyContent = bodyContent.replaceAll("{{previous_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpagePrevious.screenshot_filename}`);
+              bodyContent = bodyContent.replaceAll("{{webpage_id}}", webpagePrevious.id);
+              
+              var mailOptions = {
+                from: process.env.EMAIL_USERNAME,
+                to: webpagePrevious.notification_email,
+                subject: `Website Update Alert | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`,
+                html: bodyContent
+              };
+              
+              transporter.sendMail(mailOptions, function(error, info){
+                if (error) {
+                  console.log(error);
+                }
+              }); 
         }
-      }); 
+    });
 }
 
 async function removeOldScreenshots(webpageId) {
@@ -161,8 +178,8 @@ async function main() {
                 
                 takeScreenshot(webpage.url).then((data) => {
             
-                    // If there's a difference in the checksum compared to the previous entry then
-                    if(webpage.page_checksum != data.pageHash){
+                    // If there's a difference in the checksum or status code compared to the previous entry
+                    if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
                         
                         // Save status code, checksum, and screenshot filename in log entry
                         saveLogEntry(data, webpage.id);
