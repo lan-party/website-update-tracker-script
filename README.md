@@ -27,6 +27,8 @@ SELECT DISTINCT ON (webpages.id)
   webpages.url,
   webpages.notification_email,
   log.page_checksum,
+  log.status_code,
+  log.screenshot_filename,
   log.checked_at
 FROM
   webpages
