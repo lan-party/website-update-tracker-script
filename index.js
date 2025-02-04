@@ -1,11 +1,13 @@
 import {createClient} from '@supabase/supabase-js';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'node:fs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+puppeteer.use(StealthPlugin());
 const browser = await puppeteer.launch();
 
 
