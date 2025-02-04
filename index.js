@@ -8,57 +8,67 @@ import nodemailer from 'nodemailer';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 puppeteer.use(StealthPlugin());
-const browser = await puppeteer.launch();
+const browser = await puppeteer.launch({ignoreHTTPSErrors: true});
 
 
 async function takeScreenshot(url){
-    // Open page and set window size
-    const page = await browser.newPage();
-    await page.setViewport({width: 1920, height: 1080});
     
-    // Go to URL
-    const [response] = await Promise.all([
-        page.waitForNavigation(),
-        page.goto(url)
-    ]);
-    const statusCode = response.status();
-    const pageContent = await page.evaluate(() =>  document.documentElement.outerHTML);
+    try{
 
-    // Format filename and save screenshot
-    var filename = "";
-    var urlParts = url.split("#")[0].split("?")[0].replaceAll(".","-").replaceAll("%", "").split("/");
-    filename = urlParts.splice(2,urlParts.length).join("_");
-    var date = new Date().toLocaleString();
-    ["/",","," ",":"].forEach( (item) => { date = date.replaceAll(item, "") } );
-    filename = filename + "_" + date + ".jpg";
-    await (await page.screenshot({path: filename}));
-    
-    // Read file and upload to supabase storage
-    fs.readFile(filename, async (error, fileBuffer) => {
-        if (error) {
-            console.error("File read error:", error);
-        } else {
-            const { data, error } = await supabase
-                .storage
-                .from('screenshots')
-                .upload(filename, fileBuffer, {
-                    upsert: true,
-                    contentType: "image/jpeg"
-                });
-            if(error){ console.log(error) }
-        }
-    });
+        // Open page and set window size
+        const page = await browser.newPage();
+        await page.setViewport({width: 1920, height: 1080});
 
-    // Close page
-    await page.close();
+        // Go to URL
+        const [response] = await Promise.all([
+            page.waitForNavigation(),
+            page.goto(url)
+        ]);
 
-    // Delete local copy
-    fs.unlink(filename, () => {});
+        const statusCode = response.status();
+        const pageContent = await page.evaluate(() =>  document.documentElement.outerHTML);
 
-    // Generate checksum from page content
-    const pageHash = crypto.createHash('md5').update(pageContent).digest('hex');
+        // Format filename and save screenshot
+        var filename = "";
+        var urlParts = url.split("#")[0].split("?")[0].replaceAll(".","-").replaceAll("%", "").split("/");
+        filename = urlParts.splice(2,urlParts.length).join("_");
+        var date = new Date().toLocaleString();
+        ["/",","," ",":"].forEach( (item) => { date = date.replaceAll(item, "") } );
+        filename = filename + "_" + date + ".jpg";
+        await (await page.screenshot({path: filename}));
+        
+        // Read file and upload to supabase storage
+        fs.readFile(filename, async (error, fileBuffer) => {
+            if (error) {
+                console.error("File read error:", error);
+            } else {
+                const { data, error } = await supabase
+                    .storage
+                    .from('screenshots')
+                    .upload(filename, fileBuffer, {
+                        upsert: true,
+                        contentType: "image/jpeg"
+                    });
+                if(error){ console.log(error) }
+            }
+        });
 
-    return { filename, statusCode, pageHash };
+        // Close page
+        await page.close();
+
+        // Delete local copy
+        fs.unlink(filename, () => {});
+
+        // Generate checksum from page content
+        const pageHash = crypto.createHash('md5').update(pageContent).digest('hex');
+
+        return { filename, statusCode, pageHash };
+        
+    }catch(error){
+        console.log(`Error on ${url} : `);
+        console.log(error);
+        return false;
+    }
 }
 
 async function saveLogEntry(logEntry, webpageId){
@@ -160,9 +170,12 @@ async function main() {
             
                 // Upload a new screenshot to storage
                 takeScreenshot(webpage.url).then((data) => {
-                    
-                    // Save status code, checksum, and screenshot filename in log entry
-                    saveLogEntry(data, webpage.id);
+
+                    if(data){
+
+                        // Save status code, checksum, and screenshot filename in log entry
+                        saveLogEntry(data, webpage.id);
+                    }
                 })
             });
         }else{
@@ -179,23 +192,26 @@ async function main() {
             outdatedWebpages.forEach(webpage => {
                 
                 takeScreenshot(webpage.url).then((data) => {
+
+                    if(data){
             
-                    // If there's a difference in the checksum or status code compared to the previous entry
-                    if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
+                        // If there's a difference in the checksum or status code compared to the previous entry
+                        if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
+                            
+                            // Save status code, checksum, and screenshot filename in log entry
+                            saveLogEntry(data, webpage.id);
                         
-                        // Save status code, checksum, and screenshot filename in log entry
-                        saveLogEntry(data, webpage.id);
-                    
-                        // Send a notification
-                        sendNotification(webpage, data);
-                        
-                        // Remove the screenshot before the previous entry if there is one
-                        removeOldScreenshots(webpage.id);
+                            // Send a notification
+                            sendNotification(webpage, data);
+                            
+                            // Remove the screenshot before the previous entry if there is one
+                            removeOldScreenshots(webpage.id);
 
-                    }else{
+                        }else{
 
-                        // Remove screenshot from storage
-                        removeScreenshot(data.filename);
+                            // Remove screenshot from storage
+                            removeScreenshot(data.filename);
+                        }
                     }
                 });
             });
