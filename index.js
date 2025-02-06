@@ -271,6 +271,6 @@ async function main() {
         }
 
         main();
-    }, 10000);
+    }, 300000);
 }
 main();
