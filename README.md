@@ -23,22 +23,24 @@ NOT IN
 ### `get_outdated_webpages`
 ```
 SELECT DISTINCT ON (webpages.id)
-  webpages.id,
-  webpages.url,
-  webpages.notification_email,
-  log.page_checksum,
-  log.status_code,
-  log.screenshot_filename,
+  webpages.id, 
+  webpages.url, 
+  webpages.notification_email, 
+  webpages.stripe_subscription_id, 
+  log.page_checksum, 
+  log.status_code, 
+  log.screenshot_filename, 
   log.checked_at
 FROM
   webpages
 JOIN log ON webpages.id = log.webpage_id
 WHERE
-  webpages.id NOT IN
-    (
-      SELECT webpage_id
-      FROM public.webpages
-      JOIN public.log ON webpages.id = log.webpage_id
+webpages.id NOT IN (
+  SELECT webpage_id
+  FROM
+    public.webpages
+  JOIN
+    public.log ON webpages.id = log.webpage_id
   WHERE
   (
     (

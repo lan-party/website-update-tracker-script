@@ -6,9 +6,10 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);  // Supabase client for DB and storage access
 puppeteer.use(StealthPlugin());
-const browser = await puppeteer.launch({ignoreHTTPSErrors: true});
+const browser = await puppeteer.launch({ignoreHTTPSErrors: true});  // Headless browser init
+const freeNotifications = 14;  // Number of alert notifications to send without a stripe subscription
 
 
 async function takeScreenshot(url){
@@ -95,48 +96,90 @@ async function removeScreenshot(filename){
 
 }
 
-async function sendNotification(webpagePrevious, webpageCurrent) {
+async function sendNotification(webpagePrevious, webpageCurrent, previousNotifications) {
     console.log("Sending notification...");
-    console.log({webpagePrevious, webpageCurrent});
+    console.log({webpagePrevious, webpageCurrent, previousNotifications});
 
-    fs.readFile("emailtemplate.html", 'utf8', async (error, fileBuffer) => {
+    fs.readFile("email_template.html", 'utf8', async (error, fileBuffer) => {
         if (error) {
             console.error("File read error:", error);
         } else {
-            
-            var transporter = nodemailer.createTransport({
-                host: process.env.EMAIL_HOST,
-                port: process.env.EMAIL_PORT,
-                auth: {
-                  user: process.env.EMAIL_USERNAME,
-                  pass: process.env.EMAIL_PASSWORD
-                }
-              });
-
-              let bodyContent = fileBuffer;
-              bodyContent = bodyContent.replaceAll("{{url}}", webpagePrevious.url);
-              bodyContent = bodyContent.replaceAll("{{latest_check_timestamp}}", new Date().toISOString());
-              bodyContent = bodyContent.replaceAll("{{latest_status_code}}", webpageCurrent.statusCode);
-              bodyContent = bodyContent.replaceAll("{{latest_checksum}}", webpageCurrent.pageHash);
-              bodyContent = bodyContent.replaceAll("{{latest_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}`);
-              bodyContent = bodyContent.replaceAll("{{previous_check_timestamp}}", webpagePrevious.checked_at);
-              bodyContent = bodyContent.replaceAll("{{previous_status_code}}", webpagePrevious.status_code);
-              bodyContent = bodyContent.replaceAll("{{previous_checksum}}", webpagePrevious.page_checksum);
-              bodyContent = bodyContent.replaceAll("{{previous_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpagePrevious.screenshot_filename}`);
-              bodyContent = bodyContent.replaceAll("{{webpage_id}}", webpagePrevious.id);
-              
-              var mailOptions = {
-                from: process.env.EMAIL_USERNAME,
-                to: webpagePrevious.notification_email,
-                subject: `Website Update Alert | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`,
-                html: bodyContent
-              };
-              
-              transporter.sendMail(mailOptions, function(error, info){
+        
+            fs.readFile("warning_message.html", 'utf8', async (error, fileBuffer2) => {
+    
                 if (error) {
-                  console.log(error);
+                    console.error("File read error:", error);
+                } else {
+            
+                var transporter = nodemailer.createTransport({
+                    host: process.env.EMAIL_HOST,
+                    port: process.env.EMAIL_PORT,
+                    auth: {
+                        user: process.env.EMAIL_USERNAME,
+                        pass: process.env.EMAIL_PASSWORD
+                    }
+                    });
+
+                    let bodyContent = fileBuffer;
+                    let warningMessage = fileBuffer2;
+                    let upgradeUrl = process.env.STRIPE_PAYMENT_LINK_1;
+
+                    // Update variable placeholders
+                    bodyContent = bodyContent.replaceAll("{{url}}", webpagePrevious.url);
+                    bodyContent = bodyContent.replaceAll("{{latest_check_timestamp}}", new Date().toISOString());
+                    bodyContent = bodyContent.replaceAll("{{latest_status_code}}", webpageCurrent.statusCode);
+                    bodyContent = bodyContent.replaceAll("{{latest_checksum}}", webpageCurrent.pageHash);
+                    bodyContent = bodyContent.replaceAll("{{latest_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpageCurrent.filename}`);
+                    bodyContent = bodyContent.replaceAll("{{previous_check_timestamp}}", webpagePrevious.checked_at);
+                    bodyContent = bodyContent.replaceAll("{{previous_status_code}}", webpagePrevious.status_code);
+                    bodyContent = bodyContent.replaceAll("{{previous_checksum}}", webpagePrevious.page_checksum);
+                    bodyContent = bodyContent.replaceAll("{{previous_screenshot}}", `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${webpagePrevious.screenshot_filename}`);
+                    bodyContent = bodyContent.replaceAll("{{webpage_id}}", webpagePrevious.id);
+
+                    // Start appending a warning message after half of the free notifications have been sent
+                    if(previousNotifications >= (freeNotifications / 2) && !webpagePrevious.stripe_subscription_id){
+                        const remainingNotifications = freeNotifications - previousNotifications;
+
+                        bodyContent = bodyContent.replaceAll("{{warning_message}}", warningMessage);
+                        bodyContent = bodyContent.replaceAll("{{alerts_remaining}}", remainingNotifications);
+
+                        let subscriptionPrice = "1";
+                        if(remainingNotifications <= 0){
+                            subscriptionPrice = "5";
+                            upgradeUrl = process.env.STRIPE_PAYMENT_LINK_5;
+                        }else if(remainingNotifications > 0 && remainingNotifications <= 2){
+                            subscriptionPrice = "4";
+                            upgradeUrl = process.env.STRIPE_PAYMENT_LINK_4;
+                        }else if(remainingNotifications > 2 && remainingNotifications <= 4){
+                            subscriptionPrice = "3";
+                            upgradeUrl = process.env.STRIPE_PAYMENT_LINK_3;
+                        }else if(remainingNotifications > 4 && remainingNotifications <= 6){
+                            subscriptionPrice = "2";
+                            upgradeUrl = process.env.STRIPE_PAYMENT_LINK_2;
+                        }
+
+                        bodyContent = bodyContent.replaceAll("{{subscription_price}}", subscriptionPrice);
+
+                    }else{
+                        
+                        bodyContent = bodyContent.replaceAll("{{warning_message}}", "");
+                    }
+                    bodyContent = bodyContent.replaceAll("{{upgrade_url}}", `${upgradeUrl}?prefilled_email=${webpagePrevious.notification_email}`);
+                    
+                    var mailOptions = {
+                    from: process.env.EMAIL_USERNAME,
+                    to: webpagePrevious.notification_email,
+                    subject: `Website Update Alert | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`,
+                    html: bodyContent
+                    };
+                    
+                  transporter.sendMail(mailOptions, function(error, info){
+                    if (error) {
+                      console.log(error);
+                    }
+                  }); 
                 }
-              }); 
+            });
         }
     });
 }
@@ -152,7 +195,7 @@ async function removeOldScreenshots(webpageId) {
 
     // // Remove the 3rd oldest file from storage
     if(!error && data.length >= 3){
-        await supabase.storage.from('screenshots').remove([data[2].url]);
+        await supabase.storage.from('screenshots').remove([data[2].screenshot_filename]);
     }
 }
 
@@ -189,37 +232,45 @@ async function main() {
             const outdatedWebpages = data;
 
             // Loop through each webpage
-            outdatedWebpages.forEach(webpage => {
+            outdatedWebpages.forEach(async webpage => {
+
+                var { count, error } = await supabase
+                    .from('log')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('webpage_id', webpage.id);
+
+                if(!error && (count < freeNotifications+1 || webpage.stripe_subscription_id)){
+
+                    takeScreenshot(webpage.url).then((data) => {
+
+                        if(data){
                 
-                takeScreenshot(webpage.url).then((data) => {
-
-                    if(data){
-            
-                        // If there's a difference in the checksum or status code compared to the previous entry
-                        if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
+                            // If there's a difference in the checksum or status code compared to the previous entry
+                            if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
+                                
+                                // Save status code, checksum, and screenshot filename in log entry
+                                saveLogEntry(data, webpage.id);
                             
-                            // Save status code, checksum, and screenshot filename in log entry
-                            saveLogEntry(data, webpage.id);
-                        
-                            // Send a notification
-                            sendNotification(webpage, data);
-                            
-                            // Remove the screenshot before the previous entry if there is one
-                            removeOldScreenshots(webpage.id);
+                                // Send a notification
+                                sendNotification(webpage, data, count);
+                                
+                                // Remove the screenshot before the previous entry if there is one
+                                removeOldScreenshots(webpage.id);
 
-                        }else{
+                            }else{
 
-                            // Remove screenshot from storage
-                            removeScreenshot(data.filename);
+                                // Remove screenshot from storage
+                                removeScreenshot(data.filename);
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
         }else{
             console.log(error);
         }
 
         main();
-    }, 300000);
+    }, 10000);
 }
 main();
