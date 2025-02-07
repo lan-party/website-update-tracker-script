@@ -49,7 +49,7 @@ async function main(){
         }
     }
 
-    // Find all files in storage that's not in the log
+    // Find all files in storage that aren't in the log
     let unlogged_files = [];
     storage_filenames.forEach(filename => {
         if(!screenshot_filenames.includes(filename) && filename != '.emptyFolderPlaceholder'){

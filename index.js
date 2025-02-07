@@ -20,7 +20,7 @@ async function takeScreenshot(url){
 
         // Open page and set window size
         const page = await browser.newPage();
-        await page.setViewport({width: 1920, height: 1080});
+        await page.setViewport({width: 960, height: 540});
 
         // Go to URL
         const [response] = await Promise.all([
