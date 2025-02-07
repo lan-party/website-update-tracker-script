@@ -16,6 +16,8 @@ async function takeScreenshot(url){
     
     try{
 
+        console.log(`Taking screenshot of ${url}`);
+
         // Open page and set window size
         const page = await browser.newPage();
         await page.setViewport({width: 1920, height: 1080});
@@ -66,13 +68,15 @@ async function takeScreenshot(url){
         return { filename, statusCode, pageHash };
         
     }catch(error){
-        console.log(`Error on ${url} : `);
-        console.log(error);
+        // console.log(`Error on ${url} : `);
+        // console.log(error);
         return false;
     }
 }
 
 async function saveLogEntry(logEntry, webpageId){
+    console.log("Saving log entry...");
+    console.log({logEntry, webpageId});
     const { error } = await supabase
         .from('log')
         .insert({ 
@@ -84,10 +88,11 @@ async function saveLogEntry(logEntry, webpageId){
 }
 
 async function removeScreenshot(filename){
+    console.log(`Removing ${filename}`);
     const { data, error } = await supabase
         .storage
         .from('screenshots')
-        .remove([filename])
+        .remove([filename]);
     if(error){
         return false;
     }else{
@@ -124,7 +129,7 @@ async function sendNotification(webpagePrevious, webpageCurrent, previousNotific
                     let warningMessage = fileBuffer2;
                     let upgradeUrl = process.env.STRIPE_PAYMENT_LINK_1;
 
-                    // Update variable placeholders
+                    // Update variable placeholders in email template
                     bodyContent = bodyContent.replaceAll("{{url}}", webpagePrevious.url);
                     bodyContent = bodyContent.replaceAll("{{latest_check_timestamp}}", new Date().toISOString());
                     bodyContent = bodyContent.replaceAll("{{latest_status_code}}", webpageCurrent.statusCode);
@@ -143,6 +148,7 @@ async function sendNotification(webpagePrevious, webpageCurrent, previousNotific
                         bodyContent = bodyContent.replaceAll("{{warning_message}}", warningMessage);
                         bodyContent = bodyContent.replaceAll("{{alerts_remaining}}", remainingNotifications);
 
+                        // Increase the price and change associated payment link as the remaining free alert count decreases
                         let subscriptionPrice = "1";
                         if(remainingNotifications <= 0){
                             subscriptionPrice = "5";
@@ -195,82 +201,81 @@ async function removeOldScreenshots(webpageId) {
 
     // // Remove the 3rd oldest file from storage
     if(!error && data.length >= 3){
+        console.log(`Removing old screenshot ${data[2].screenshot_filename}`);
         await supabase.storage.from('screenshots').remove([data[2].screenshot_filename]);
     }
 }
 
 async function main() {
-    setTimeout(async () => {
 
-        // Select all webpages with no log entries
-        var { data, error } = await supabase.rpc('get_unchecked_webpages');
-        if(!error){
+    // Select all webpages with no log entries
+    var { data, error } = await supabase.rpc('get_unchecked_webpages');
+    if(!error){
 
-            const uncheckedWebpages = data;
+        const uncheckedWebpages = data;
 
-            // Loop through each webpage
-            uncheckedWebpages.forEach(webpage => {
-            
-                // Upload a new screenshot to storage
+        // Loop through each webpage
+        uncheckedWebpages.forEach(webpage => {
+        
+            // Upload a new screenshot to storage
+            takeScreenshot(webpage.url).then((data) => {
+
+                if(data){
+
+                    // Save status code, checksum, and screenshot filename in log entry
+                    saveLogEntry(data, webpage.id);
+                }
+            })
+        });
+    }else{
+        console.log(error);
+    }
+
+    // Select all outdated webpages
+    var { data, error } = await supabase.rpc('get_outdated_webpages');
+    if(!error){
+
+        const outdatedWebpages = data;
+
+        // Loop through each webpage
+        outdatedWebpages.forEach(async webpage => {
+
+            var { count, error } = await supabase
+                .from('log')
+                .select('*', { count: 'exact', head: true })
+                .eq('webpage_id', webpage.id);
+
+            if(!error && (count < freeNotifications+1 || webpage.stripe_subscription_id)){
+
                 takeScreenshot(webpage.url).then((data) => {
 
                     if(data){
-
-                        // Save status code, checksum, and screenshot filename in log entry
-                        saveLogEntry(data, webpage.id);
-                    }
-                })
-            });
-        }else{
-            console.log(error);
-        }
-
-        // Select all outdated webpages
-        var { data, error } = await supabase.rpc('get_outdated_webpages');
-        if(!error){
-
-            const outdatedWebpages = data;
-
-            // Loop through each webpage
-            outdatedWebpages.forEach(async webpage => {
-
-                var { count, error } = await supabase
-                    .from('log')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('webpage_id', webpage.id);
-
-                if(!error && (count < freeNotifications+1 || webpage.stripe_subscription_id)){
-
-                    takeScreenshot(webpage.url).then((data) => {
-
-                        if(data){
-                
-                            // If there's a difference in the checksum or status code compared to the previous entry
-                            if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
-                                
-                                // Save status code, checksum, and screenshot filename in log entry
-                                saveLogEntry(data, webpage.id);
+            
+                        // If there's a difference in the checksum or status code compared to the previous entry
+                        if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
                             
-                                // Send a notification
-                                sendNotification(webpage, data, count);
-                                
-                                // Remove the screenshot before the previous entry if there is one
-                                removeOldScreenshots(webpage.id);
+                            // Save status code, checksum, and screenshot filename in log entry
+                            saveLogEntry(data, webpage.id);
+                        
+                            // Send a notification
+                            sendNotification(webpage, data, count);
+                            
+                            // Remove the screenshot before the previous entry if there is one
+                            removeOldScreenshots(webpage.id);
 
-                            }else{
+                        }else{
 
-                                // Remove screenshot from storage
-                                removeScreenshot(data.filename);
-                            }
+                            // Remove screenshot from storage
+                            removeScreenshot(data.filename);
                         }
-                    });
-                }
-            });
-        }else{
-            console.log(error);
-        }
+                    }
+                });
+            }
+        });
+    }else{
+        console.log(error);
+    }
 
-        main();
-    }, 300000);
+    setTimeout(main, 300000); // 5 minute loop
 }
 main();

@@ -1,10 +1,11 @@
 # Website Update Tracker Script
 Backend node script for https://website-tracker.com built with Supabase and Puppeteer.
 
-## Getting started
+## Gettings Started
 0. Rename .env.template to .env and populate it
 1. `npm install`
 2. `node --env-file .env index.js`
+2. Also run `node --env-file .env storage-sync.js`
 
 ## Stored Procedures
 These stored procedures / database functions are being used to select unchecked and outdated webpages.
