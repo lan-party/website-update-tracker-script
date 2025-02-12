@@ -87,20 +87,6 @@ async function saveLogEntry(logEntry, webpageId){
         });
 }
 
-async function removeScreenshot(filename){
-    console.log(`Removing ${filename}`);
-    const { data, error } = await supabase
-        .storage
-        .from('screenshots')
-        .remove([filename]);
-    if(error){
-        return false;
-    }else{
-        return true;
-    }
-
-}
-
 async function sendNotification(webpagePrevious, webpageCurrent, previousNotifications) {
     console.log("Sending notification...");
     console.log({webpagePrevious, webpageCurrent, previousNotifications});
@@ -142,8 +128,9 @@ async function sendNotification(webpagePrevious, webpageCurrent, previousNotific
                     bodyContent = bodyContent.replaceAll("{{webpage_id}}", webpagePrevious.id);
 
                     // Start appending a warning message after half of the free notifications have been sent
+                    const remainingNotifications = freeNotifications - previousNotifications;
+                    let subject = "";
                     if(previousNotifications >= (freeNotifications / 2) && !webpagePrevious.stripe_subscription_id){
-                        const remainingNotifications = freeNotifications - previousNotifications;
 
                         bodyContent = bodyContent.replaceAll("{{warning_message}}", warningMessage);
                         bodyContent = bodyContent.replaceAll("{{alerts_remaining}}", remainingNotifications);
@@ -165,17 +152,19 @@ async function sendNotification(webpagePrevious, webpageCurrent, previousNotific
                         }
 
                         bodyContent = bodyContent.replaceAll("{{subscription_price}}", subscriptionPrice);
+                        subject = `Website Update Alert (${remainingNotifications} remaining) | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`;
 
                     }else{
                         
                         bodyContent = bodyContent.replaceAll("{{warning_message}}", "");
+                        subject = `Website Update Alert | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`
                     }
                     bodyContent = bodyContent.replaceAll("{{upgrade_url}}", `${upgradeUrl}?prefilled_email=${webpagePrevious.notification_email}`);
                     
                     var mailOptions = {
                     from: process.env.EMAIL_USERNAME,
                     to: webpagePrevious.notification_email,
-                    subject: `Website Update Alert | ${(webpagePrevious.url.split("//")[1].split("?")[0].split("#")[0])} | ${new Date().toISOString().split("T")[0]}`,
+                    subject: subject,
                     html: bodyContent
                     };
                     
@@ -211,6 +200,7 @@ async function main() {
     // Select all webpages with no log entries
     var { data, error } = await supabase.rpc('get_unchecked_webpages');
     if(!error){
+        console.log('=-=-=-= Checking webpages with no log entries =-=-=-=');
 
         const uncheckedWebpages = data;
 
@@ -234,6 +224,7 @@ async function main() {
     // Select all outdated webpages
     var { data, error } = await supabase.rpc('get_outdated_webpages');
     if(!error){
+        console.log('=-=-=-= Checking outdated webpages =-=-=-=');
 
         const outdatedWebpages = data;
 
@@ -263,10 +254,6 @@ async function main() {
                             // Remove the screenshot before the previous entry if there is one
                             removeOldScreenshots(webpage.id);
 
-                        }else{
-
-                            // Remove screenshot from storage
-                            removeScreenshot(data.filename);
                         }
                     }
                 });
