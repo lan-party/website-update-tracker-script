@@ -25,7 +25,7 @@ async function takeScreenshot(url){
         // Go to URL
         const [response] = await Promise.all([
             page.waitForNavigation(),
-            page.goto(url)
+            page.goto(url, {waitUntil: 'load', timeout: 10000})
         ]);
 
         const statusCode = response.status();
@@ -229,9 +229,11 @@ async function main() {
         const outdatedWebpages = data;
 
         // Loop through each webpage
-        outdatedWebpages.forEach(async webpage => {
+        outdatedWebpages.forEach((webpage, index) => {
 
-            var { count, error } = await supabase
+            setTimeout(async () => {
+
+                var { count, error } = await supabase
                 .from('log')
                 .select('*', { count: 'exact', head: true })
                 .eq('webpage_id', webpage.id);
@@ -258,11 +260,14 @@ async function main() {
                     }
                 });
             }
+
+            }, index * 10000);
+
         });
     }else{
         console.log(error);
     }
 
-    setTimeout(main, 300000); // 5 minute loop
+    setTimeout(main, 900000); // 15 minute loop
 }
 main();
