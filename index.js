@@ -14,12 +14,13 @@ const freeNotifications = 14;  // Number of alert notifications to send without 
 
 async function takeScreenshot(url){
     
+    const page = await browser.newPage();
+
     try{
 
         console.log(`Taking screenshot of ${url}`);
 
         // Open page and set window size
-        const page = await browser.newPage();
         await page.setViewport({width: 960, height: 540});
 
         // Go to URL
@@ -70,8 +71,10 @@ async function takeScreenshot(url){
     }catch(error){
         // console.log(`Error on ${url} : `);
         // console.log(error);
+        await page.close();
         return false;
     }
+    process.exit();
 }
 
 async function saveLogEntry(logEntry, webpageId){
