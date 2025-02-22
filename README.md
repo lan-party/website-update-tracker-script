@@ -23,15 +23,20 @@ NOT IN
 
 ### `get_outdated_webpages`
 ```
+
 SELECT DISTINCT ON (webpages.id)
   webpages.id, 
   webpages.url, 
   webpages.notification_email, 
   webpages.stripe_subscription_id, 
+  webpages.track_status_code, 
+  webpages.track_page_title, 
+  webpages.track_page_content, 
   log.page_checksum, 
   log.status_code, 
   log.screenshot_filename, 
-  log.checked_at
+  log.checked_at, 
+  log.page_title
 FROM
   webpages
 JOIN log ON webpages.id = log.webpage_id

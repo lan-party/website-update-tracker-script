@@ -31,6 +31,7 @@ async function takeScreenshot(url){
 
         const statusCode = response.status();
         const pageContent = await page.evaluate(() =>  document.documentElement.outerHTML);
+        const pageTitle = await page.title();
 
         // Format filename and save screenshot
         var filename = "";
@@ -66,7 +67,7 @@ async function takeScreenshot(url){
         // Generate checksum from page content
         const pageHash = crypto.createHash('md5').update(pageContent).digest('hex');
 
-        return { filename, statusCode, pageHash };
+        return { filename, statusCode, pageHash, pageTitle };
         
     }catch(error){
         // console.log(`Error on ${url} : `);
@@ -85,6 +86,7 @@ async function saveLogEntry(logEntry, webpageId){
         .insert({ 
             status_code: logEntry.statusCode,
             page_checksum: logEntry.pageHash,
+            page_title: logEntry.pageTitle,
             screenshot_filename: logEntry.filename,
             webpage_id: webpageId
         });
@@ -247,10 +249,14 @@ async function main() {
 
                     if(data){
             
-                        // If there's a difference in the checksum or status code compared to the previous entry
-                        if(webpage.page_checksum != data.pageHash || webpage.status_code != data.statusCode){
+                        // If there's a difference in the checksum, status code, or page title compared to the previous entry
+                        if (
+                            (webpage.track_status_code && webpage.status_code != data.statusCode) ||
+                            (webpage.track_page_title && webpage.page_title != data.pageTitle) ||
+                            (webpage.track_page_content && webpage.page_checksum != data.pageHash)
+                        ){
                             
-                            // Save status code, checksum, and screenshot filename in log entry
+                            // Save status code, checksum, title, and screenshot filename in log entry
                             saveLogEntry(data, webpage.id);
                         
                             // Send a notification
